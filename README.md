@@ -1,5 +1,7 @@
 # TaskFlow API
 
+[![CI](https://github.com/ZXCreatorDS/TaskFlow-API/actions/workflows/ci.yml/badge.svg)](https://github.com/ZXCreatorDS/TaskFlow-API/actions/workflows/ci.yml)
+
 REST API для управления задачами команды: пользователи, проекты, метки, задачи и комментарии.
 
 Стек: **Python 3.12 · FastAPI · PostgreSQL 16 · SQLAlchemy 2 · Alembic · Docker Compose**.
@@ -46,10 +48,62 @@ POSTGRES_USER=taskflow
 POSTGRES_PASSWORD=taskflow
 POSTGRES_DB=taskflow
 DATABASE_URL=postgresql+psycopg2://taskflow:taskflow@localhost:5432/taskflow
+
+LOG_LEVEL=INFO
+LOG_FORMAT="%(asctime)s %(levelname)s [%(name)s] %(message)s"
+# LOG_FILE=logs/taskflow.log
 ```
 
 В Docker переменная `DATABASE_URL` собирается автоматически и указывает на
 хост `db`, а не на `localhost`. Файл `.env` в репозиторий не добавляется.
+
+## Логирование
+
+Логирование настраивается через переменные окружения:
+
+| Переменная | Назначение | По умолчанию |
+|---|---|---|
+| `LOG_LEVEL` | `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL` | `INFO` |
+| `LOG_FORMAT` | формат сообщений | `%(asctime)s %(levelname)s [%(name)s] %(message)s` |
+| `LOG_FILE` | путь к файлу логов (ротация 5 МБ, 3 файла) | не задан |
+
+Используются все уровни:
+
+- `DEBUG` — метод, путь и query-параметры каждого запроса;
+- `INFO` — старт/остановка приложения, health-check, успешные запросы;
+- `WARNING` — ответы `4xx`, `404`, конфликты `409`;
+- `ERROR` — ответы `5xx`, недоступность БД в `/health`;
+- `CRITICAL` — необработанное исключение в запросе.
+
+Подробный конспект по документации `logging`/`Logger` и разбор всех
+компонентов: [LOGGING.md](LOGGING.md).
+
+Показать все пять уровней одной командой:
+
+```bash
+# локально
+python -m app.logging_demo
+
+# в запущенном контейнере — все пять уровней
+docker compose exec -e LOG_LEVEL=DEBUG api python -m app.logging_demo
+```
+
+Если запустить с `LOG_LEVEL=WARNING`, останутся только `WARNING`,
+`ERROR` и `CRITICAL` — так проверяется настройка через env.
+
+Примеры запуска с разным уровнем:
+
+```bash
+LOG_LEVEL=DEBUG docker compose up --build
+LOG_LEVEL=WARNING LOG_FILE=logs/taskflow.log docker compose up --build
+```
+
+В PowerShell:
+
+```powershell
+$env:LOG_LEVEL="DEBUG"
+docker compose up --build
+```
 
 ## Эндпоинты
 
@@ -130,6 +184,24 @@ curl -X DELETE http://localhost:8000/v1/projects/1
 # 204 — задачи проекта и их комментарии тоже удалены
 ```
 
+## CI
+
+GitHub Actions workflow: `.github/workflows/ci.yml`. Пайплайн состоит из трёх
+независимых джоб:
+
+1. **Style** — `ruff format --check .`;
+2. **Static analysis** — `ruff check .`;
+3. **Tests** — `pytest -q`.
+
+Локальный запуск тех же проверок:
+
+```bash
+pip install -r requirements-dev.txt
+ruff format --check .
+ruff check .
+pytest -q
+```
+
 ## Миграции
 
 Схема создаётся только через Alembic, `Base.metadata.create_all()` не
@@ -160,12 +232,19 @@ uvicorn app.main:app --reload
 ```text
 .
 ├── app/
-│   ├── main.py          # FastAPI-приложение и /health
+│   ├── main.py          # FastAPI-приложение, /health и логирование запросов
+│   ├── logging_config.py # настройка логов через env
+│   ├── logging_demo.py   # демонстрация всех пяти уровней
 │   ├── config.py        # настройки из переменных окружения
 │   ├── database.py      # engine, SessionLocal, Base, get_db
 │   ├── models.py        # SQLAlchemy-модели пяти таблиц
 │   ├── schemas.py       # Pydantic-схемы запросов и ответов
 │   └── routers/         # CRUD-роутеры по ресурсам
+├── tests/
+│   ├── conftest.py
+│   ├── test_api.py
+│   └── test_logging.py
+├── .github/workflows/ci.yml
 ├── alembic/
 │   ├── env.py
 │   └── versions/0001_initial.py
@@ -174,7 +253,10 @@ uvicorn app.main:app --reload
 ├── docker-compose.yml
 ├── .dockerignore
 ├── .env.example
+├── pyproject.toml
 ├── requirements.txt
+├── requirements-dev.txt
+├── LOGGING.md
 └── README.md
 ```
 
@@ -194,5 +276,5 @@ uvicorn app.main:app --reload
 
 ## Что не входит в задание
 
-Авторизация, асинхронный SQLAlchemy, фронтенд, CI/CD и Kubernetes не
-реализуются.
+Авторизация, асинхронный SQLAlchemy, фронтенд, CD и Kubernetes не
+реализуются. CI при этом добавлен отдельно.
