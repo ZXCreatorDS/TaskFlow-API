@@ -75,6 +75,22 @@ LOG_FORMAT="%(asctime)s %(levelname)s [%(name)s] %(message)s"
 - `ERROR` — ответы `5xx`, недоступность БД в `/health`;
 - `CRITICAL` — необработанное исключение в запросе.
 
+Подробный конспект по документации `logging`/`Logger` и разбор всех
+компонентов: [LOGGING.md](LOGGING.md).
+
+Показать все пять уровней одной командой:
+
+```bash
+# локально
+python -m app.logging_demo
+
+# в запущенном контейнере — все пять уровней
+docker compose exec -e LOG_LEVEL=DEBUG api python -m app.logging_demo
+```
+
+Если запустить с `LOG_LEVEL=WARNING`, останутся только `WARNING`,
+`ERROR` и `CRITICAL` — так проверяется настройка через env.
+
 Примеры запуска с разным уровнем:
 
 ```bash
@@ -218,6 +234,7 @@ uvicorn app.main:app --reload
 ├── app/
 │   ├── main.py          # FastAPI-приложение, /health и логирование запросов
 │   ├── logging_config.py # настройка логов через env
+│   ├── logging_demo.py   # демонстрация всех пяти уровней
 │   ├── config.py        # настройки из переменных окружения
 │   ├── database.py      # engine, SessionLocal, Base, get_db
 │   ├── models.py        # SQLAlchemy-модели пяти таблиц
@@ -225,7 +242,8 @@ uvicorn app.main:app --reload
 │   └── routers/         # CRUD-роутеры по ресурсам
 ├── tests/
 │   ├── conftest.py
-│   └── test_api.py
+│   ├── test_api.py
+│   └── test_logging.py
 ├── .github/workflows/ci.yml
 ├── alembic/
 │   ├── env.py
@@ -238,6 +256,7 @@ uvicorn app.main:app --reload
 ├── pyproject.toml
 ├── requirements.txt
 ├── requirements-dev.txt
+├── LOGGING.md
 └── README.md
 ```
 
