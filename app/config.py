@@ -5,6 +5,9 @@ class Settings(BaseSettings):
     database_url: str = (
         "postgresql+psycopg2://taskflow:taskflow@localhost:5432/taskflow"
     )
+    log_level: str = "INFO"
+    log_format: str = "%(asctime)s %(levelname)s [%(name)s] %(message)s"
+    log_file: str | None = None
 
     model_config = SettingsConfigDict(
         env_file=".env",
