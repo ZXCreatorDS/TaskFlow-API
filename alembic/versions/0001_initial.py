@@ -166,8 +166,36 @@ def upgrade() -> None:
         ),
     )
 
+    # В PostgreSQL updated_at обновляется самой БД, в том числе при
+    # изменениях напрямую через psql, а не только через приложение.
+    bind = op.get_bind()
+    if bind.dialect.name == "postgresql":
+        op.execute(
+            """
+            CREATE FUNCTION set_tasks_updated_at() RETURNS trigger AS $$
+            BEGIN
+                NEW.updated_at = now();
+                RETURN NEW;
+            END;
+            $$ LANGUAGE plpgsql;
+            """
+        )
+        op.execute(
+            """
+            CREATE TRIGGER trg_tasks_updated_at
+            BEFORE UPDATE ON tasks
+            FOR EACH ROW
+            EXECUTE FUNCTION set_tasks_updated_at();
+            """
+        )
+
 
 def downgrade() -> None:
+    bind = op.get_bind()
+    if bind.dialect.name == "postgresql":
+        op.execute("DROP TRIGGER IF EXISTS trg_tasks_updated_at ON tasks")
+        op.execute("DROP FUNCTION IF EXISTS set_tasks_updated_at()")
+
     op.drop_table("comments")
     op.drop_table("tasks")
     op.drop_table("labels")
